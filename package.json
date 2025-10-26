@@ -1,0 +1,13 @@
+{
+  "name": "mock-exam-app",
+  "version": "1.0.0",
+  "description": "Mock exams platform wrapped in Electron. Loads Total-Exams.html and allows online resources.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "package-win": "electron-packager . MockExamApp --platform=win32 --arch=x64 --out=dist --overwrite"
+  },
+  "devDependencies": {
+    "electron": "^26.0.0"
+  }
+}
