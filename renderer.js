@@ -2325,18 +2325,23 @@
             };
 
             try {
+                const btn = document.getElementById('save-result-btn');
+                if(btn) btn.textContent = "Saving...";
+
                 await addDoc(collection(db, "results"), resultData);
                 console.log("Result saved successfully.");
-                const btn = document.getElementById('save-result-btn');
+                
                 if(btn) {
                     btn.textContent = "Saved!";
                     btn.disabled = true;
-                    btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'from-green-500', 'to-green-700');
                     btn.classList.add('bg-gray-500');
                 }
             } catch (e) {
                 console.error("Error adding document: ", e);
-                alert("Failed to save result.");
+                const btn = document.getElementById('save-result-btn');
+                if(btn) btn.textContent = "Save Failed - Retry";
+                alert("Failed to save result to the database. Please check your internet connection and try again.");
             }
         }
 
