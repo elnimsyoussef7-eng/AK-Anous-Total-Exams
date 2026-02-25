@@ -59,6 +59,9 @@
             try {
                 const stateToSave = {
                     studentName: window.state.studentName,
+                    role: window.state.role,
+                    parentEmail: window.state.parentEmail,
+                    parentPhone: window.state.parentPhone,
                     appStage: window.state.appStage,
                     currentTestId: window.state.currentTestId,
                     module: window.state.module,
@@ -2188,25 +2191,42 @@
              const hiddenUserIdDisplay = document.getElementById('full-user-id-hidden');
              
              // Wait for auth state
-             onAuthStateChanged(auth, (user) => {
+             onAuthStateChanged(auth, async (user) => {
                  if (user) {
                      userId = user.uid;
                      const name = user.email.split('@')[0];
+                     
                      // window.state.studentName might be overwritten by loadState, but we ensure it matches user
                      window.state.studentName = name;
                      
                      authStatus.textContent = user.email;
                      hiddenUserIdDisplay.textContent = userId;
                      
-                     document.getElementById('student-name-display-sidebar').textContent = name;
-                     document.getElementById('student-name-header-display').textContent = name;
+                     // Ensure we have the role from Firestore if starting fresh or reloading
+                     try {
+                         const userDoc = await getDoc(doc(db, "users", userId));
+                         if (userDoc.exists()) {
+                             const userData = userDoc.data();
+                             window.state.role = userData.role;
+                             window.state.studentName = userData.displayName || name;
+                             window.state.parentEmail = userData.parentEmail;
+                             window.state.parentPhone = userData.parentPhone;
+                         }
+                     } catch (e) {
+                         console.warn("Init fetch profile failed", e);
+                     }
+
+                     document.getElementById('student-name-display-sidebar').textContent = window.state.studentName;
+                     document.getElementById('student-name-header-display').textContent = window.state.studentName;
 
                      // Attempt to load previous state
                      const stateLoaded = loadState();
 
                      if (stateLoaded && window.state.studentName !== '') {
                          // Logic to resume based on state
-                         if (window.state.appStage === 'active') {
+                         if (window.state.appStage === 'teacher_dashboard' || window.state.role === 'teacher') {
+                             window.renderTeacherDashboard();
+                         } else if (window.state.appStage === 'active') {
                              window.startTest();
                          } else if (window.state.appStage === 'break') {
                              // Break resume logic
@@ -2237,10 +2257,10 @@
                              const finalScorePercentage = (totalCorrect / 44) * 100;
                              renderScoreReport(totalCorrect, finalScorePercentage, 44);
                          } else {
-                             window.renderExamSelectionScreen();
+                             window.navigateToHome();
                          }
                      } else {
-                         window.renderExamSelectionScreen();
+                         window.navigateToHome();
                      }
                  } else {
                      // No user
@@ -2449,10 +2469,10 @@
                         window.renderTeacherDashboard();
                     } else {
                         console.error("renderTeacherDashboard not implemented");
-                        window.renderExamSelectionScreen(); // Fallback
+                        window.navigateToHome(); // Fallback
                     }
                 } else {
-                    window.renderExamSelectionScreen();
+                    window.navigateToHome();
                 }
             } catch (error) {
                 console.error("Login error:", error);
@@ -2528,10 +2548,10 @@
                         if (typeof window.renderTeacherDashboard === 'function') {
                             window.renderTeacherDashboard();
                         } else {
-                            window.renderExamSelectionScreen(); // Fallback
+                            window.navigateToHome(); // Fallback
                         }
                     } else {
-                        window.renderExamSelectionScreen();
+                        window.navigateToHome();
                     }
                 }, 1000);
 
@@ -2549,6 +2569,15 @@
                 window.toggleSidebar(false);
             } catch (error) {
                 console.error("Logout error", error);
+            }
+        }
+
+        /** Context-aware Home Navigation */
+        window.navigateToHome = function() {
+            if (window.state.role === 'teacher') {
+                window.renderTeacherDashboard();
+            } else {
+                window.renderExamSelectionScreen();
             }
         }
 
@@ -2615,7 +2644,7 @@
                     <div class="text-center p-12 bg-red-100 rounded-xl shadow-lg border border-red-400">
                         <h2 class="text-2xl font-bold text-red-800 mb-4">Error Loading Test!</h2>
                         <p class="text-lg text-red-700">Test data for ${testId} is incomplete. Check the ALL_TEST_QUESTIONS object.</p>
-                        <button onclick="window.renderExamSelectionScreen()" class="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg">Home</button>
+                        <button onclick="window.navigateToHome()" class="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg">Home</button>
                     </div>`;
                 document.getElementById('question-content').classList.add('flex', 'items-center', 'justify-center');
                 return;
@@ -2676,7 +2705,7 @@
                             class="px-10 py-4 bg-gradient-to-r from-green-500 to-green-700 text-white text-xl font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition duration-150">
                         Start Module 1 
                     </button>
-                    <button onclick="window.renderExamSelectionScreen()"
+                    <button onclick="window.navigateToHome()"
                             class="mt-4 px-10 py-2 bg-gradient-to-r from-gray-500 to-gray-700 text-white text-md font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition duration-150">
                         Home
                     </button>
@@ -3260,7 +3289,7 @@
                             Review Test Questions
                         </button>
 
-                        <button onclick="window.renderExamSelectionScreen()"
+                        <button onclick="window.navigateToHome()"
                             class="w-full px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-700 text-white text-xl font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition duration-150">
                             Home
                         </button>
@@ -3409,36 +3438,98 @@
                 const q = query(collection(db, "users"), where("role", "==", "student"));
                 const querySnapshot = await getDocs(q);
                 
-                let studentsHtml = '<div class="space-y-4">';
-                if (querySnapshot.empty) {
-                    studentsHtml += '<p>No students found.</p>';
-                } else {
-                    querySnapshot.forEach((doc) => {
-                        const student = doc.data();
-                        const name = student.displayName || student.email.split('@')[0];
-                        studentsHtml += `
-                            <div class="flex items-center justify-between p-4 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 cursor-pointer" onclick="viewStudentHistory('${student.uid}', '${name}', '${student.parentPhone || ''}')">
-                                <div>
-                                    <h3 class="text-lg font-bold text-gray-800">${name}</h3>
-                                    <p class="text-sm text-gray-500">${student.email}</p>
-                                    ${student.parentPhone ? `<p class="text-sm text-gray-500">Parent: ${student.parentPhone}</p>` : ''}
+                let allStudents = [];
+                querySnapshot.forEach((doc) => {
+                    const student = doc.data();
+                    student.displayName = student.displayName || student.email.split('@')[0];
+                    allStudents.push(student);
+                });
+
+                // Helper to render the list based on filter
+                window.renderStudentList = (students) => {
+                    const listContainer = document.getElementById('student-list-container');
+                    if (!listContainer) return;
+
+                    if (students.length === 0) {
+                        listContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No students found matching your search.</p>';
+                        return;
+                    }
+
+                    let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
+                    students.forEach(student => {
+                        html += `
+                            <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-6 cursor-pointer group" onclick="viewStudentHistory('${student.uid}', '${student.displayName}', '${student.parentPhone || ''}')">
+                                <div class="flex items-center mb-4">
+                                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl mr-4">
+                                        ${student.displayName.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">${student.displayName}</h3>
+                                        <p class="text-xs text-gray-500">Student</p>
+                                    </div>
                                 </div>
-                                <div class="text-blue-600 font-semibold">View Progress &rarr;</div>
+                                <div class="space-y-2 text-sm text-gray-600">
+                                    <p><span class="font-semibold">Email:</span> ${student.email}</p>
+                                    ${student.parentPhone ? `<p><span class="font-semibold">Parent:</span> ${student.parentPhone}</p>` : '<p class="text-gray-400 italic">No parent phone</p>'}
+                                </div>
+                                <div class="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+                                    <span class="text-blue-600 font-semibold text-sm group-hover:underline">View History &rarr;</span>
+                                </div>
                             </div>
                         `;
                     });
-                }
-                studentsHtml += '</div>';
+                    html += '</div>';
+                    listContainer.innerHTML = html;
+                };
+
+                // Search handler
+                window.filterStudents = (searchTerm) => {
+                    const lowerTerm = searchTerm.toLowerCase();
+                    const filtered = allStudents.filter(s => 
+                        s.displayName.toLowerCase().includes(lowerTerm) || 
+                        s.email.toLowerCase().includes(lowerTerm)
+                    );
+                    window.renderStudentList(filtered);
+                };
 
                 contentDiv.innerHTML = `
-                    <div class="p-8">
-                        <div class="flex justify-between items-center mb-6">
-                            <h1 class="text-3xl font-bold text-gray-800">My Students</h1>
-                            <button onclick="window.handleLogout()" class="px-4 py-2 bg-gradient-to-r from-red-500 to-red-700 text-white rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition duration-150">Logout</button>
+                    <div class="p-8 max-w-7xl mx-auto">
+                        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                            <div>
+                                <h1 class="text-3xl font-extrabold text-gray-800">Teacher Dashboard</h1>
+                                <p class="text-gray-500 mt-1">Welcome back, ${window.state.studentName}</p>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="bg-blue-50 px-4 py-2 rounded-lg border border-blue-100">
+                                    <span class="text-blue-800 font-semibold">${allStudents.length}</span> <span class="text-blue-600">Students</span>
+                                </div>
+                                <button onclick="window.handleLogout()" class="px-4 py-2 bg-white border border-red-200 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition duration-150">
+                                    Logout
+                                </button>
+                            </div>
                         </div>
-                        ${studentsHtml}
+
+                        <div class="mb-8">
+                            <div class="relative">
+                                <input type="text" 
+                                       placeholder="Search students by name or email..." 
+                                       oninput="window.filterStudents(this.value)"
+                                       class="w-full p-4 pl-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg shadow-sm">
+                                <svg class="w-6 h-6 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div id="student-list-container">
+                            <!-- Students will be rendered here -->
+                        </div>
                     </div>
                 `;
+
+                // Initial render
+                window.renderStudentList(allStudents);
+
             } catch (e) {
                 console.error("Error loading students:", e);
                 contentDiv.innerHTML = '<p class="text-red-500 text-center">Error loading students.</p>';
@@ -3509,11 +3600,34 @@
                 resultsHtml += '</div>';
 
                 contentDiv.innerHTML = `
-                    <div class="p-8">
-                        <div class="flex justify-between items-center mb-6">
-                            <h2 class="text-2xl font-bold text-gray-800">Progress: ${studentEmail}</h2>
-                            <button onclick="renderTeacherDashboard()" class="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-lg shadow hover:shadow-md hover:scale-105 transition duration-150">Back to Students</button>
+                    <div class="p-8 max-w-7xl mx-auto">
+                        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                            <div>
+                                <h2 class="text-3xl font-extrabold text-gray-800">Student Progress</h2>
+                                <p class="text-gray-500 mt-1">Viewing history for <span class="font-semibold text-blue-600">${studentName}</span></p>
+                            </div>
+                            <button onclick="renderTeacherDashboard()" 
+                                    class="flex items-center px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl shadow-sm hover:bg-gray-50 hover:shadow transition duration-150">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                                Back to Dashboard
+                            </button>
                         </div>
+                        
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-lg">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-blue-700">
+                                        Click "View Details" to review the specific answers and questions for each test attempt.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         ${resultsHtml}
                     </div>
                 `;
