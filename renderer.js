@@ -59,6 +59,9 @@
             try {
                 const stateToSave = {
                     studentName: window.state.studentName,
+                    role: window.state.role,
+                    parentEmail: window.state.parentEmail,
+                    parentPhone: window.state.parentPhone,
                     appStage: window.state.appStage,
                     currentTestId: window.state.currentTestId,
                     module: window.state.module,
@@ -2188,25 +2191,42 @@
              const hiddenUserIdDisplay = document.getElementById('full-user-id-hidden');
 
              // Wait for auth state
-             onAuthStateChanged(auth, (user) => {
+             onAuthStateChanged(auth, async (user) => {
                  if (user) {
                      userId = user.uid;
                      const name = user.email.split('@')[0];
+
                      // window.state.studentName might be overwritten by loadState, but we ensure it matches user
                      window.state.studentName = name;
 
                      authStatus.textContent = user.email;
                      hiddenUserIdDisplay.textContent = userId;
 
-                     document.getElementById('student-name-display-sidebar').textContent = name;
-                     document.getElementById('student-name-header-display').textContent = name;
+                     // Ensure we have the role from Firestore if starting fresh or reloading
+                     try {
+                         const userDoc = await getDoc(doc(db, "users", userId));
+                         if (userDoc.exists()) {
+                             const userData = userDoc.data();
+                             window.state.role = userData.role;
+                             window.state.studentName = userData.displayName || name;
+                             window.state.parentEmail = userData.parentEmail;
+                             window.state.parentPhone = userData.parentPhone;
+                         }
+                     } catch (e) {
+                         console.warn("Init fetch profile failed", e);
+                     }
+
+                     document.getElementById('student-name-display-sidebar').textContent = window.state.studentName;
+                     document.getElementById('student-name-header-display').textContent = window.state.studentName;
 
                      // Attempt to load previous state
                      const stateLoaded = loadState();
 
                      if (stateLoaded && window.state.studentName !== '') {
                          // Logic to resume based on state
-                         if (window.state.appStage === 'active') {
+                         if (window.state.appStage === 'teacher_dashboard' || window.state.role === 'teacher') {
+                             window.renderTeacherDashboard();
+                         } else if (window.state.appStage === 'active') {
                              window.startTest();
                          } else if (window.state.appStage === 'break') {
                              // Break resume logic
