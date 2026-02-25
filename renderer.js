@@ -32,8 +32,8 @@
             module: 1,
             questionIndex: 0,  
             moduleQuestions: [],  
-            userAnswers: Array(22).fill(null),
-            flags: Array(22).fill(false),
+            userAnswers: [],
+            flags: [],
             timeLeft: 33 * 60,  
             timerInterval: null,
             testActive: true,
@@ -429,17 +429,198 @@
                         difficulty: 'Hard',
                         imageUrl: null
                     },
-                    // Placeholder for remaining 20 Hard M2 questions
-                    ...Array(20).fill().map((_, i) => ({
-                        id: `T1M2H_Q${i + 3}`,
+                    {
+                        id: `T1M2H_Q3`,
                         module: 2,
-                        text: `HARD Module 2 - Question ${i + 3} (TEST 1): Placeholder. Replace this text.`,
-                        type: i % 4 === 2 ? 'SPR' : 'MC',
-                        options: i % 4 === 2 ? null : ['A', 'B', 'C', 'D'],
-                        correctAnswer: i % 4 === 2 ? '1/3' : 'C',
+                        text: "For what value of $k$ does the system of equations have no solution?<br>$$3x - 4y = 7$$<br>$$kx - 12y = 15$$",
+                        type: 'MC',
+                        options: ["$9$", "$3$", "$4$", "$-9$"],
+                        correctAnswer: 'A',
                         difficulty: 'Hard',
                         imageUrl: null
-                    })),
+                    },
+                    {
+                        id: `T1M2H_Q4`,
+                        module: 2,
+                        text: "The function $f(x) = 200(1.05)^x$ models the population of a certain bacteria culture after $x$ hours. Which of the following is the best interpretation of the number $1.05$ in this context?",
+                        type: 'MC',
+                        options: ["The initial population of the bacteria.", "The population increases by $5\\%$ each hour.", "The population increases by $105$ bacteria each hour.", "The population reaches $105$ after $x$ hours."],
+                        correctAnswer: 'B',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q5`,
+                        module: 2,
+                        text: "In the $xy$-plane, the graph of $y = (x-4)^2 + 3$ intersects the line $y = 7$ at two points. What is the distance between these two points?",
+                        type: 'MC',
+                        options: ["$2$", "$4$", "$6$", "$8$"],
+                        correctAnswer: 'B',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q6`,
+                        module: 2,
+                        text: "If $\\sin(x) = \\cos(20^{\\circ})$, what is the value of $x$ in degrees, where $0 < x < 90$?",
+                        type: 'MC',
+                        options: ["$20$", "$45$", "$70$", "$90$"],
+                        correctAnswer: 'C',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q7`,
+                        module: 2,
+                        text: "Which of the following is an equivalent form of the expression $\\frac{2x^2 + 7x + 3}{2x + 1}$ for $x > 0$?",
+                        type: 'MC',
+                        options: ["$x + 3$", "$x + 2$", "$2x + 3$", "$x - 3$"],
+                        correctAnswer: 'A',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q8`,
+                        module: 2,
+                        text: "A circle in the $xy$-plane has its center at $(-3, 5)$ and a radius of $4$. Which of the following is the equation of the circle?",
+                        type: 'MC',
+                        options: ["$(x-3)^2 + (y+5)^2 = 16$", "$(x+3)^2 + (y-5)^2 = 16$", "$(x+3)^2 + (y-5)^2 = 4$", "$(x-3)^2 + (y+5)^2 = 4$"],
+                        correctAnswer: 'B',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q9`,
+                        module: 2,
+                        text: "A study estimated that $35\\%$ of a town's residents own a car, with a margin of error of $\\pm 4\\%$. Which of the following is a plausible value for the actual percentage of residents who own a car?",
+                        type: 'MC',
+                        options: ["$30\\%$", "$33\\%$", "$40\\%$", "$25\\%$"],
+                        correctAnswer: 'B',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q10`,
+                        module: 2,
+                        text: "If $f(x) = x^2 - 1$ and $g(x) = 2x + 3$, what is the value of $f(g(1))$?",
+                        type: 'MC',
+                        options: ["$8$", "$24$", "$15$", "$0$"],
+                        correctAnswer: 'B',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q11`,
+                        module: 2,
+                        text: "The expression $\\frac{1}{\\frac{1}{x} + \\frac{1}{y}}$ is equivalent to which of the following?",
+                        type: 'MC',
+                        options: ["$\\frac{xy}{x+y}$", "$\\frac{x+y}{xy}$", "$x+y$", "$xy$"],
+                        correctAnswer: 'A',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q12`,
+                        module: 2,
+                        text: "Triangle $ABC$ is similar to triangle $DEF$, where angle $A$ corresponds to angle $D$. If $AB = 6$, $DE = 12$, and the area of triangle $ABC$ is $20$, what is the area of triangle $DEF$?",
+                        type: 'MC',
+                        options: ["$40$", "$60$", "$80$", "$100$"],
+                        correctAnswer: 'C',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q13`,
+                        module: 2,
+                        text: "If $3(x-2) + 4 = 2(x+5) - 3$, what is the value of $x$?",
+                        type: 'MC',
+                        options: ["$5$", "$9$", "$7$", "$12$"],
+                        correctAnswer: 'B',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q14`,
+                        module: 2,
+                        text: "A rectangular box has a volume of $240$ cubic inches. If the length is increased by $20\\%$ and the width is decreased by $20\\%$, while the height remains the same, what is the new volume?",
+                        type: 'MC',
+                        options: ["$240$", "$230.4$", "$249.6$", "$220$"],
+                        correctAnswer: 'B',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q15`,
+                        module: 2,
+                        text: "The graph of linear function $f$ passes through points $(2, 5)$ and $(4, 11)$. What is the slope of the graph of $f$?",
+                        type: 'SPR',
+                        correctAnswer: '3',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q16`,
+                        module: 2,
+                        text: "If $\\sqrt{2x + 3} - 1 = 4$, what is the value of $x$?",
+                        type: 'SPR',
+                        correctAnswer: '11',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q17`,
+                        module: 2,
+                        text: "In the system of equations below, $a$ and $c$ are constants.<br>$$ax + y = 6$$<br>$$3x + 2y = c$$<br>If the system has infinitely many solutions, what is the value of $a$?",
+                        type: 'SPR',
+                        correctAnswer: '1.5',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q18`,
+                        module: 2,
+                        text: "A right cylinder has a radius of $3$ and a height of $5$. What is the volume of the cylinder? (Enter your answer as a multiple of $\\pi$, e.g. if the answer is $10\\pi$, enter $10$)",
+                        type: 'SPR',
+                        correctAnswer: '45',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q19`,
+                        module: 2,
+                        text: "Let the function $g$ be defined by $g(x) = x^2 - 4x + 9$. What is the minimum value of the function $g$?",
+                        type: 'SPR',
+                        correctAnswer: '5',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q20`,
+                        module: 2,
+                        text: "If $5^x = 125^{x-2}$, what is the value of $x$?",
+                        type: 'SPR',
+                        correctAnswer: '3',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q21`,
+                        module: 2,
+                        text: "A line passes through the origin and has a slope of $\\frac{1}{7}$. If the line passes through the point $(14, k)$, what is the value of $k$?",
+                        type: 'SPR',
+                        correctAnswer: '2',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
+                    {
+                        id: `T1M2H_Q22`,
+                        module: 2,
+                        text: "In the $xy$-plane, the parabola with equation $y = ax^2$ intersects the line $y = 25$ at two points. If the distance between these two points is $10$, what is the value of $a$?",
+                        type: 'SPR',
+                        correctAnswer: '1',
+                        difficulty: 'Hard',
+                        imageUrl: null
+                    },
                 ],
                 M2E: [
                     // --- EASY MODULE 2 QUESTIONS (22 questions total) ---
@@ -2289,6 +2470,11 @@
         }
 
         window.saveTestResult = async function() {
+            if (!navigator.onLine) {
+                alert("You appear to be offline. Please check your internet connection and try again.");
+                return;
+            }
+
             if (!userId) {
                 console.error("Cannot save: No user logged in.");
                 return;
@@ -2667,8 +2853,8 @@
                 window.state.module = 1;
                 window.state.questionIndex = 0;
                 window.state.moduleQuestions = testData.M1;  
-                window.state.userAnswers = Array(22).fill(null);
-                window.state.flags = Array(22).fill(false);
+                window.state.userAnswers = new Array(testData.M1.length).fill(null);
+                window.state.flags = new Array(testData.M1.length).fill(false);
                 window.state.timeLeft = 33 * 60;  
                 window.state.timerInterval = null;
                 window.state.testHistory = {
@@ -3370,8 +3556,8 @@
                 window.state.module = 2;
                 window.state.questionIndex = 0;
                 window.state.moduleQuestions = nextQuestions;
-                window.state.userAnswers = Array(22).fill(null); 
-                window.state.flags = Array(22).fill(false);
+                window.state.userAnswers = new Array(nextQuestions.length).fill(null); 
+                window.state.flags = new Array(nextQuestions.length).fill(false);
                 
                 window.state.testHistory.module2.difficulty = moduleTwoSet;
 
@@ -3424,10 +3610,11 @@
             }
         }
 
-        /** Simplistic Adaptive Algorithm */
-        function determineModuleTwo(percentage) {
-            const threshold = 60;
-            if (percentage >= threshold) {
+        /** Adaptive Algorithm: Determine Difficulty Based on Correct Answers */
+        function determineModuleTwo(correctCount) {
+            // Threshold: If student answers 13 or more correctly out of 22 (approx 60%), they get the Hard module.
+            const threshold = 13;
+            if (correctCount >= threshold) {
                 return 'M2H'; // Hard Module 2
             } else {
                 return 'M2E'; // Easy Module 2
@@ -3453,7 +3640,9 @@
                 
                 let allResults = [];
                 querySnapshot.forEach((doc) => {
-                    allResults.push(doc.data());
+                    const data = doc.data();
+                    data.id = doc.id; // Capture Firestore document ID
+                    allResults.push(data);
                 });
                 
                 // Sort client-side if needed (descending timestamp)
@@ -3501,8 +3690,8 @@
                 }
 
                 allResults.forEach(data => {
-                    // Store result for review access
-                    window.tempStudentResults[data.testId] = data;
+                    // Store result for review access, keyed by unique doc ID
+                    window.tempStudentResults[data.id] = data;
 
                     // Data extraction with fallbacks
                     const studentName = data.studentName || 'Unknown Student';
@@ -3541,7 +3730,7 @@
                                     <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
                                     Send Report
                                 </button>` : ''}
-                                <button onclick="reviewPastAttempt('${data.testId}', window.tempStudentResults['${data.testId}'])" 
+                                <button onclick="reviewPastAttempt('${data.testId}', window.tempStudentResults['${data.id}'])" 
                                         class="p-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600" title="Review Test">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
