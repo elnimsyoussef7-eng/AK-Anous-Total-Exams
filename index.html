@@ -232,6 +232,7 @@
                     <div class="p-3 bg-blue-100 border border-blue-300 rounded-lg mb-4">
                         <h5 class="text-sm font-semibold text-blue-700 mb-1">Student Name</h5>
                         <p id="student-name-display-sidebar" class="text-base text-gray-800 font-bold break-words">Not Started</p>
+                        <button onclick="handleLogout()" class="mt-2 text-sm text-red-600 font-bold hover:underline">Logout</button>
                     </div>
 
                     <!-- Hidden element to store the technical User ID -->
@@ -431,12 +432,28 @@
 
     <!-- Firebase Imports and Setup (NOW DISABLED FOR LOCAL USE) -->
     <script type="module">
-        // TEMPORARILY DISABLE FIREBASE FOR LOCAL FILE EXECUTION
+        import { auth, db } from './firebase-init.js';
+        import { 
+            signInWithEmailAndPassword, 
+            createUserWithEmailAndPassword, 
+            onAuthStateChanged,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { 
+            collection, 
+            addDoc, 
+            getDocs, 
+            query, 
+            where,
+            Timestamp 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Expose to window for debugging or global access if needed
+        window.auth = auth;
+        window.db = db;
         
-        // Mock DB and Auth objects
-        let app = null, db = null, auth = null;
-        let userId = 'LOCAL_USER_' + Math.random().toString(36).substring(2, 8); // Generate a local mock ID
-        const APP_ID = 'local-dsat-app-id';
+        let userId = null;
+        const APP_ID = 'dsat-app-id';
 
         // --- Core Test State ---
         // Default state if no data is loaded from localStorage
@@ -2597,101 +2614,132 @@
             if(window.state.isCalculatorOpen) window.toggleCalculator(false);
         }
 
-        // --- Mock Firebase Initialization ---
         window.initFirebase = function() {
              const authStatus = document.getElementById('auth-status');
              const hiddenUserIdDisplay = document.getElementById('full-user-id-hidden');
              
-             authStatus.textContent = 'AK-Anous';
-             hiddenUserIdDisplay.textContent = 'DB Access Disabled';
-             
-             // Attempt to load previous state
-             const stateLoaded = loadState();
-
-             if (stateLoaded && window.state.studentName !== '') {
-                 // Resume test or go to previous screen if state was saved
-                 document.getElementById('student-name-display-sidebar').textContent = window.state.studentName;
-                 document.getElementById('student-name-header-display').textContent = window.state.studentName;
-
-                 if (window.state.appStage === 'active') {
-                     // Resume the test exactly where the student left off
-                     window.startTest();
-                 } else if (window.state.appStage === 'break') {
-                     // Resume break timer
-                     hideTestUIElements();
-                     document.getElementById('timer-display').classList.remove('hidden');
-                     window.state.module = 2; // Ensure module is set correctly for break display
+             // Wait for auth state
+             onAuthStateChanged(auth, (user) => {
+                 if (user) {
+                     userId = user.uid;
+                     const name = user.email.split('@')[0];
+                     // window.state.studentName might be overwritten by loadState, but we ensure it matches user
+                     window.state.studentName = name;
                      
-                     const contentDiv = document.getElementById('question-content');
-                     contentDiv.innerHTML = `
-                         <div id="break-screen" class="text-center p-12">
-                             <h1 class="text-3xl font-bold text-green-600 mb-4">Module 1 Complete!</h1>
-                             <p class="text-xl">Your performance determined you will now receive the 
-                             <span class="font-bold text-indigo-700">${window.state.testHistory.module2.difficulty === 'M2H' ? 'HARD' : 'EASY'}</span> Module 2.</p>
-                             <p class="text-gray-600 mt-4 font-semibold text-lg">5-Minute Break in Progress (Resumed)...</p>
-                             <p id="break-timer-display" class="text-6xl font-mono text-red-600 mt-4">${Math.floor(window.state.timeLeft / 60).toString().padStart(2, '0')}:${(window.state.timeLeft % 60).toString().padStart(2, '0')}</p>
-                             <button onclick="startModuleTwoImmediately()" class="mt-6 px-6 py-3 bg-indigo-500 text-white rounded-xl font-semibold shadow-md hover:bg-indigo-600 transition duration-150 transform hover:scale-105">
-                                 Skip Break and Start Module 2
-                             </button>
-                         </div>
-                     `;
-                     contentDiv.classList.add('flex', 'items-center', 'justify-center');
-                     startTimer();
-                     renderMath('break-screen');
-                 } else if (window.state.appStage === 'finished') {
-                     // Show score report
-                     const m1 = window.state.testHistory.module1;
-                     const m2 = window.state.testHistory.module2;
-                     const totalCorrect = m1.score + m2.score;
-                     const finalScorePercentage = (totalCorrect / 44) * 100;
-                     renderScoreReport(totalCorrect, finalScorePercentage, 44);
+                     authStatus.textContent = user.email;
+                     hiddenUserIdDisplay.textContent = userId;
+                     
+                     document.getElementById('student-name-display-sidebar').textContent = name;
+                     document.getElementById('student-name-header-display').textContent = name;
+
+                     // Attempt to load previous state
+                     const stateLoaded = loadState();
+
+                     if (stateLoaded && window.state.studentName !== '') {
+                         // Logic to resume based on state
+                         if (window.state.appStage === 'active') {
+                             window.startTest();
+                         } else if (window.state.appStage === 'break') {
+                             // Break resume logic
+                             hideTestUIElements();
+                             document.getElementById('timer-display').classList.remove('hidden');
+                             window.state.module = 2;
+                             
+                             const contentDiv = document.getElementById('question-content');
+                             contentDiv.innerHTML = `
+                                 <div id="break-screen" class="text-center p-12">
+                                     <h1 class="text-3xl font-bold text-green-600 mb-4">Module 1 Complete!</h1>
+                                     <p class="text-xl">Your performance determined you will now receive the 
+                                     <span class="font-bold text-indigo-700">${window.state.testHistory.module2.difficulty === 'M2H' ? 'HARD' : 'EASY'}</span> Module 2.</p>
+                                     <p class="text-gray-600 mt-4 font-semibold text-lg">5-Minute Break in Progress (Resumed)...</p>
+                                     <p id="break-timer-display" class="text-6xl font-mono text-red-600 mt-4">${Math.floor(window.state.timeLeft / 60).toString().padStart(2, '0')}:${(window.state.timeLeft % 60).toString().padStart(2, '0')}</p>
+                                     <button onclick="startModuleTwoImmediately()" class="mt-6 px-6 py-3 bg-indigo-500 text-white rounded-xl font-semibold shadow-md hover:bg-indigo-600 transition duration-150 transform hover:scale-105">
+                                         Skip Break and Start Module 2
+                                     </button>
+                                 </div>
+                             `;
+                             contentDiv.classList.add('flex', 'items-center', 'justify-center');
+                             startTimer();
+                             renderMath('break-screen');
+                         } else if (window.state.appStage === 'finished') {
+                             const m1 = window.state.testHistory.module1;
+                             const m2 = window.state.testHistory.module2;
+                             const totalCorrect = m1.score + m2.score;
+                             const finalScorePercentage = (totalCorrect / 44) * 100;
+                             renderScoreReport(totalCorrect, finalScorePercentage, 44);
+                         } else {
+                             window.renderExamSelectionScreen();
+                         }
+                     } else {
+                         window.renderExamSelectionScreen();
+                     }
                  } else {
-                     // Go back to exam selection if state loaded but not in active test mode
-                     window.renderExamSelectionScreen();
+                     // No user
+                     authStatus.textContent = 'Guest';
+                     hiddenUserIdDisplay.textContent = 'Not Auth';
+                     renderLoginScreen();
                  }
-
-             } else {
-                 // No saved state, start fresh
-                 renderLoginScreen(); 
-             }
+             });
         }
 
-        // --- MOCK FIREBASE FETCH (for past results) ---
         window.fetchPastResults = async function() {
-             console.warn("MOCK DB: Saving and fetching results is disabled in this local version. To enable, run via a web server.");
-             return {}; // Always return empty map locally
-        }
-        
-        // --- MOCK FIREBASE SAVE (to prevent errors) ---
-        window.saveTestResult = async function() {
-             const saveButton = document.getElementById('save-result-button');
-             saveButton.disabled = true;
-             saveButton.textContent = 'Save Disabled (Offline)';
-             console.error("Cannot save results. Please run this file on a web server to enable Firebase storage.");
-             
-             // Show a non-alert message for user feedback
-             document.getElementById('question-content').innerHTML = `
-                <div class="text-center p-12 bg-yellow-100 rounded-xl shadow-lg border border-yellow-400">
-                    <h2 class="text-2xl font-bold text-yellow-800 mb-4">Save Failed!</h2>
-                    <p class="text-lg text-yellow-700">Database saving functionality is disabled in this local/offline simulation.</p>
-                    <button onclick="window.renderExamSelectionScreen()" class="mt-4 px-6 py-2 bg-yellow-500 text-white rounded-lg">Home</button>
-                </div>`;
-             
-             // Restore score report view after message
-             setTimeout(() => {
-                if (window.state.appStage === 'finished') {
-                     const m1 = window.state.testHistory.module1;
-                     const m2 = window.state.testHistory.module2;
-                     const totalCorrect = m1.score + m2.score;
-                     const finalScorePercentage = (totalCorrect / 44) * 100;
-                     renderScoreReport(totalCorrect, finalScorePercentage, 44);
-                }
-             }, 3000);
-             
-             saveButton.disabled = false;
-             window.toggleSidebar(false);
+            if (!userId) return {};
+            try {
+                const q = query(collection(db, "results"), where("userId", "==", userId));
+                const querySnapshot = await getDocs(q);
+                const results = {};
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    results[data.testId] = data;
+                });
+                return results;
+            } catch (error) {
+                console.error("Error fetching results:", error);
+                return {};
+            }
         }
 
+        window.saveTestResult = async function() {
+            if (!userId) {
+                console.error("Cannot save: No user logged in.");
+                return;
+            }
+            
+            const testId = window.state.currentTestId;
+            const m1 = window.state.testHistory.module1;
+            const m2 = window.state.testHistory.module2;
+            const totalCorrect = m1.score + m2.score;
+            const percentage = (totalCorrect / 44) * 100;
+            
+            const resultData = {
+                userId: userId,
+                testId: testId,
+                totalCorrect: totalCorrect,
+                percentage: percentage,
+                timestamp: Date.now(),
+                details: {
+                    // Serialize simplified details to save space if needed, but full is fine for Firestore
+                    module1Score: m1.score,
+                    module2Score: m2.score,
+                    module2Difficulty: m2.difficulty
+                }
+            };
+
+            try {
+                await addDoc(collection(db, "results"), resultData);
+                console.log("Result saved successfully.");
+                const btn = document.getElementById('save-result-btn');
+                if(btn) {
+                    btn.textContent = "Saved!";
+                    btn.disabled = true;
+                    btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    btn.classList.add('bg-gray-500');
+                }
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                alert("Failed to save result.");
+            }
+        }
 
         // --- SCREEN RENDERING FUNCTIONS (LOGIN, SELECTION, WELCOME) ---
         
@@ -2706,57 +2754,126 @@
             document.getElementById('question-content').innerHTML = `
                 <div id="login-card" class="text-center p-12 bg-white rounded-xl shadow-lg border border-blue-200">
                     <h1 class="text-3xl font-extrabold text-blue-700 mb-6">Welcome AK-Anous Platform</h1>
-                    
                     <div class="mx-auto max-w-sm mb-6 text-left">
-                        <label for="login-name-input" class="block text-lg font-semibold text-gray-800 mb-1">Student Name:</label>
-                        <input type="text" id="login-name-input" 
-                               placeholder="Enter your name"
-                               value="${window.state.studentName || ''}"
+                        <label for="login-email-input" class="block text-lg font-semibold text-gray-800 mb-1">Email:</label>
+                        <input type="email" id="login-email-input" 
+                               placeholder="Enter your email"
                                class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg mb-4">
 
-                        <label for="password-input" class="block text-lg font-semibold text-gray-800 mb-1">Passcode :</label>
+                        <label for="password-input" class="block text-lg font-semibold text-gray-800 mb-1">Password:</label>
                         <input type="password" id="password-input" 
-                               placeholder="Enter Passcode"
+                               placeholder="Enter Password"
                                class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg">
                                 
-                        <p id="login-error-message" class="text-red-500 text-sm mt-3 hidden">Invalid name or passcode.</p>
+                        <p id="login-error-message" class="text-red-500 text-sm mt-3 hidden">Invalid email or password.</p>
+                        <p id="login-success-message" class="text-green-500 text-sm mt-3 hidden"></p>
                     </div>
                     
                     <button onclick="handleLogin()"
-                            class="px-8 py-3 bg-green-600 text-white text-xl font-bold rounded-xl shadow-lg hover:bg-green-700 transition duration-150 transform hover:scale-105">
-                        Login & View Exams
+                            class="px-8 py-3 bg-green-600 text-white text-xl font-bold rounded-xl shadow-lg hover:bg-green-700 transition duration-150 transform hover:scale-105 mb-4 block w-full">
+                        Login
+                    </button>
+                    <button onclick="handleSignUp()"
+                            class="px-8 py-3 bg-blue-600 text-white text-xl font-bold rounded-xl shadow-lg hover:bg-blue-700 transition duration-150 transform hover:scale-105 block w-full">
+                        Sign Up
                     </button>
                     ${window.state.studentName ? `<p class="text-sm text-gray-500 mt-4">Resuming saved session for: ${window.state.studentName}</p>` : ''}
                 </div>
             `;
-            // Render math in the login screen (if any math notation was present)
-            renderMath('login-card');
         }
 
         /** Handles the login attempt. */
-        window.handleLogin = function() {
-            const nameInput = document.getElementById('login-name-input');
+
+        /** Handles the login attempt. */
+        window.handleLogin = async function() {
+            const emailInput = document.getElementById('login-email-input');
             const passInput = document.getElementById('password-input');
             const errorMessage = document.getElementById('login-error-message');
+            const successMessage = document.getElementById('login-success-message');
             
-            const name = nameInput.value.trim();
+            const email = emailInput.value.trim();
             const password = passInput.value.trim();
-            const CORRECT_PASSCODE = '555'; // Hardcoded universal passcode
 
-            if (name === '' || password !== CORRECT_PASSCODE) {
+            if (email === '' || password === '') {
+                errorMessage.textContent = 'Please enter email and password.';
                 errorMessage.classList.remove('hidden');
                 return;
             }
             
-            window.state.studentName = name;
-            // Update sidebar/header with student name right after successful login
-            document.getElementById('student-name-display-sidebar').textContent = name;
-            
-            window.renderExamSelectionScreen();
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                console.log("Logged in:", user.email);
+                
+                window.state.studentName = user.email.split('@')[0]; // Use part of email as name
+                userId = user.uid;
+                
+                document.getElementById('student-name-display-sidebar').textContent = window.state.studentName;
+                document.getElementById('auth-status').textContent = user.email;
+                
+                window.renderExamSelectionScreen();
+            } catch (error) {
+                console.error("Login error:", error);
+                errorMessage.textContent = "Login failed: " + error.message;
+                errorMessage.classList.remove('hidden');
+            }
         }
 
+        window.handleSignUp = async function() {
+            const emailInput = document.getElementById('login-email-input');
+            const passInput = document.getElementById('password-input');
+            const errorMessage = document.getElementById('login-error-message');
+            const successMessage = document.getElementById('login-success-message');
+            
+            const email = emailInput.value.trim();
+            const password = passInput.value.trim();
+
+            if (email === '' || password === '') {
+                errorMessage.textContent = 'Please enter email and password.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                console.log("Signed up:", user.email);
+                
+                successMessage.textContent = "Account created! Logging in...";
+                successMessage.classList.remove('hidden');
+                
+                window.state.studentName = user.email.split('@')[0];
+                userId = user.uid;
+                
+                document.getElementById('student-name-display-sidebar').textContent = window.state.studentName;
+                
+                setTimeout(() => {
+                     window.renderExamSelectionScreen();
+                }, 1000);
+
+            } catch (error) {
+                console.error("Sign up error:", error);
+                errorMessage.textContent = "Sign up failed: " + error.message;
+                errorMessage.classList.remove('hidden');
+            }
+        }
 
         /** Renders the test selection screen. */
+        window.handleLogout = async function() {
+            try {
+                await signOut(auth);
+                window.toggleSidebar(false);
+            } catch (error) {
+                console.error("Logout error", error);
+            }
+        }
+
         window.renderExamSelectionScreen = async function() { 
             window.state.appStage = 'selection';
             hideTestUIElements();
@@ -3411,8 +3528,12 @@
                             <p class="text-sm text-gray-500 mt-2">You were placed on the ${m2.difficulty === 'M2H' ? 'Hard' : 'Easy'} path.</p>
                         </div>
                     </div>
+                    <button id="save-result-btn" onclick="saveTestResult()"
+                        class="mt-8 w-full max-w-4xl mx-auto block px-4 py-2 bg-green-600 text-white text-xl font-bold rounded-xl shadow-lg hover:bg-green-700 transition duration-150 transform hover:scale-105">
+                        Save Result to Database
+                    </button>
                     <button onclick="window.renderExamSelectionScreen()"
-                        class="mt-8 w-full max-w-4xl mx-auto block px-4 py-2 bg-blue-600 text-white text-xl font-bold rounded-xl shadow-lg hover:bg-red-700 transition duration-150 transform hover:scale-105">
+                        class="mt-4 w-full max-w-4xl mx-auto block px-4 py-2 bg-blue-600 text-white text-xl font-bold rounded-xl shadow-lg hover:bg-red-700 transition duration-150 transform hover:scale-105">
                         Home
                     </button>
                 </div>
