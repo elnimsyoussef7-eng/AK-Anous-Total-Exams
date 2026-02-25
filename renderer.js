@@ -2302,6 +2302,8 @@
             
             const resultData = {
                 userId: userId,
+                studentName: window.state.studentName,
+                parentPhone: window.state.parentPhone,
                 testId: testId,
                 totalCorrect: totalCorrect,
                 percentage: percentage,
@@ -2311,6 +2313,10 @@
                     module1Score: m1.score,
                     module2Score: m2.score,
                     module2Difficulty: m2.difficulty
+                },
+                testHistory: {
+                    module1: m1,
+                    module2: m2
                 },
                 answers: {
                     module1: m1.answers,
@@ -3425,6 +3431,7 @@
 
         // --- TEACHER DASHBOARD ---
 
+        /** Fetches all student test results from Firestore and displays them in a table */
         window.renderTeacherDashboard = async function() {
             window.state.appStage = 'teacher_dashboard';
             hideTestUIElements();
@@ -3432,107 +3439,111 @@
             
             const contentDiv = document.getElementById('question-content');
             contentDiv.classList.remove('flex', 'items-center', 'justify-center');
-            contentDiv.innerHTML = '<p class="text-center text-xl">Loading students...</p>';
+            contentDiv.innerHTML = '<p class="text-center text-xl">Loading results...</p>';
 
             try {
-                const q = query(collection(db, "users"), where("role", "==", "student"));
+                // Fetch all results, ordered by timestamp
+                const q = query(collection(db, "results")); 
                 const querySnapshot = await getDocs(q);
                 
-                let allStudents = [];
+                let allResults = [];
                 querySnapshot.forEach((doc) => {
-                    const student = doc.data();
-                    student.displayName = student.displayName || student.email.split('@')[0];
-                    allStudents.push(student);
+                    allResults.push(doc.data());
                 });
+                
+                // Sort client-side if needed (descending timestamp)
+                allResults.sort((a, b) => b.timestamp - a.timestamp);
 
-                // Helper to render the list based on filter
-                window.renderStudentList = (students) => {
-                    const listContainer = document.getElementById('student-list-container');
-                    if (!listContainer) return;
-
-                    if (students.length === 0) {
-                        listContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No students found matching your search.</p>';
-                        return;
-                    }
-
-                    let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
-                    students.forEach(student => {
-                        html += `
-                            <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 p-6 cursor-pointer group" onclick="viewStudentHistory('${student.uid}', '${student.displayName}', '${student.parentPhone || ''}')">
-                                <div class="flex items-center mb-4">
-                                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl mr-4">
-                                        ${student.displayName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <h3 class="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">${student.displayName}</h3>
-                                        <p class="text-xs text-gray-500">Student</p>
-                                    </div>
-                                </div>
-                                <div class="space-y-2 text-sm text-gray-600">
-                                    <p><span class="font-semibold">Email:</span> ${student.email}</p>
-                                    ${student.parentPhone ? `<p><span class="font-semibold">Parent:</span> ${student.parentPhone}</p>` : '<p class="text-gray-400 italic">No parent phone</p>'}
-                                </div>
-                                <div class="mt-4 pt-4 border-t border-gray-100 flex justify-end">
-                                    <span class="text-blue-600 font-semibold text-sm group-hover:underline">View History &rarr;</span>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    html += '</div>';
-                    listContainer.innerHTML = html;
-                };
-
-                // Search handler
-                window.filterStudents = (searchTerm) => {
-                    const lowerTerm = searchTerm.toLowerCase();
-                    const filtered = allStudents.filter(s => 
-                        s.displayName.toLowerCase().includes(lowerTerm) || 
-                        s.email.toLowerCase().includes(lowerTerm)
-                    );
-                    window.renderStudentList(filtered);
-                };
+                if (!window.tempStudentResults) window.tempStudentResults = {};
 
                 contentDiv.innerHTML = `
                     <div class="p-8 max-w-7xl mx-auto">
                         <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                             <div>
                                 <h1 class="text-3xl font-extrabold text-gray-800">Teacher Dashboard</h1>
-                                <p class="text-gray-500 mt-1">Welcome back, ${window.state.studentName}</p>
+                                <p class="text-gray-500 mt-1">Real-time Student Progress</p>
                             </div>
-                            <div class="flex items-center gap-4">
-                                <div class="bg-blue-50 px-4 py-2 rounded-lg border border-blue-100">
-                                    <span class="text-blue-800 font-semibold">${allStudents.length}</span> <span class="text-blue-600">Students</span>
-                                </div>
-                                <button onclick="window.handleLogout()" class="px-4 py-2 bg-white border border-red-200 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition duration-150">
-                                    Logout
-                                </button>
-                            </div>
+                            <button onclick="window.handleLogout()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow transition-colors">
+                                Logout
+                            </button>
                         </div>
 
-                        <div class="mb-8">
-                            <div class="relative">
-                                <input type="text" 
-                                       placeholder="Search students by name or email..." 
-                                       oninput="window.filterStudents(this.value)"
-                                       class="w-full p-4 pl-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg shadow-sm">
-                                <svg class="w-6 h-6 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                        </div>
-
-                        <div id="student-list-container">
-                            <!-- Students will be rendered here -->
+                        <div class="bg-white rounded-xl shadow-lg overflow-hidden overflow-x-auto">
+                            <table class="min-w-full leading-normal">
+                                <thead>
+                                    <tr class="bg-blue-600 text-white text-left text-xs font-semibold uppercase tracking-wider">
+                                        <th class="px-5 py-3 border-b-2 border-gray-200">Student Name</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200">Test ID</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200">M1 Score</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200">M2 Score</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200">Difficulty</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200">Date</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="teacher-results-body">
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 `;
 
-                // Initial render
-                window.renderStudentList(allStudents);
+                const resultsContainer = document.getElementById('teacher-results-body');
+                
+                if (allResults.length === 0) {
+                    resultsContainer.innerHTML = '<tr><td colspan="7" class="text-center py-4">No results found.</td></tr>';
+                    return;
+                }
+
+                allResults.forEach(data => {
+                    // Store result for review access
+                    window.tempStudentResults[data.testId] = data;
+
+                    // Data extraction with fallbacks
+                    const studentName = data.studentName || 'Unknown';
+                    const testName = ALL_TEST_QUESTIONS[data.testId] ? ALL_TEST_QUESTIONS[data.testId].name : data.testId;
+                    const m1Score = data.details ? data.details.module1Score : (data.testHistory?.module1?.score || 0);
+                    const m2Score = data.details ? data.details.module2Score : (data.testHistory?.module2?.score || 0);
+                    const m2Diff = data.details ? data.details.module2Difficulty : (data.testHistory?.module2?.difficulty);
+                    const diffLabel = m2Diff === 'M2H' ? 'Hard' : 'Easy';
+                    const diffColor = m2Diff === 'M2H' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700';
+                    const dateStr = data.timestamp ? new Date(data.timestamp).toLocaleDateString() + ' ' + new Date(data.timestamp).toLocaleTimeString() : 'N/A';
+                    const parentPhone = data.parentPhone || '';
+
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-gray-50 transition-colors border-b border-gray-200";
+                    
+                    row.innerHTML = `
+                        <td class="px-5 py-5 text-sm font-medium text-gray-900">${studentName}</td>
+                        <td class="px-5 py-5 text-sm text-gray-600">${testName}</td>
+                        <td class="px-5 py-5 text-sm text-gray-600 font-bold">${m1Score}/22</td>
+                        <td class="px-5 py-5 text-sm text-gray-600 font-bold">${m2Score}/22</td>
+                        <td class="px-5 py-5 text-sm">
+                            <span class="px-2 py-1 rounded text-xs font-bold ${diffColor}">
+                                ${diffLabel}
+                            </span>
+                        </td>
+                        <td class="px-5 py-5 text-sm text-gray-600">${dateStr}</td>
+                        <td class="px-5 py-5 text-sm text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                ${parentPhone ? `
+                                <button onclick="sendParentWhatsApp('${parentPhone}', '${studentName}', '${testName}', '${data.totalCorrect}', '44')" 
+                                        class="p-2 bg-green-500 text-white rounded-full hover:bg-green-600" title="WhatsApp Parent">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                                </button>` : ''}
+                                <button onclick="reviewPastAttempt('${data.testId}', window.tempStudentResults['${data.testId}'])" 
+                                        class="p-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600" title="Review Test">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    resultsContainer.appendChild(row);
+                });
 
             } catch (e) {
-                console.error("Error loading students:", e);
-                contentDiv.innerHTML = '<p class="text-red-500 text-center">Error loading students.</p>';
+                console.error("Error loading dashboard data:", e);
+                contentDiv.innerHTML = '<p class="text-red-500 text-center">Error loading data.</p>';
             }
         }
 
@@ -3606,7 +3617,7 @@
                                 <h2 class="text-3xl font-extrabold text-gray-800">Student Progress</h2>
                                 <p class="text-gray-500 mt-1">Viewing history for <span class="font-semibold text-blue-600">${studentName}</span></p>
                             </div>
-                            <button onclick="renderTeacherDashboard()" 
+                            <button onclick="window.navigateToHome()" 
                                     class="flex items-center px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl shadow-sm hover:bg-gray-50 hover:shadow transition duration-150">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                                 Back to Dashboard
