@@ -2342,6 +2342,11 @@
                             </div>
                         </div>
 
+                        <label for="full-name-input" class="block text-lg font-semibold text-gray-800 mb-1">Full Name:</label>
+                        <input type="text" id="full-name-input"
+                               placeholder="Enter your full name"
+                               class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg mb-4">
+
                         <label for="login-email-input" class="block text-lg font-semibold text-gray-800 mb-1">Email:</label>
                         <input type="email" id="login-email-input"
                                placeholder="Enter your email"
@@ -2356,6 +2361,11 @@
                             <label for="parent-email-input" class="block text-lg font-semibold text-gray-800 mb-1">Parent Email (Optional):</label>
                             <input type="email" id="parent-email-input"
                                    placeholder="parent@example.com"
+                                   class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg mb-4">
+
+                            <label for="parent-phone-input" class="block text-lg font-semibold text-gray-800 mb-1">Parent Phone Number (Optional):</label>
+                            <input type="tel" id="parent-phone-input"
+                                   placeholder="+1234567890"
                                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg">
                         </div>
 
@@ -2454,7 +2464,9 @@
         window.handleSignUp = async function() {
             const emailInput = document.getElementById('login-email-input');
             const passInput = document.getElementById('password-input');
+            const fullNameInput = document.getElementById('full-name-input');
             const parentEmailInput = document.getElementById('parent-email-input');
+            const parentPhoneInput = document.getElementById('parent-phone-input');
             const errorMessage = document.getElementById('login-error-message');
             const successMessage = document.getElementById('login-success-message');
 
@@ -2464,10 +2476,18 @@
 
             const email = emailInput.value.trim();
             const password = passInput.value.trim();
+            const fullName = fullNameInput ? fullNameInput.value.trim() : '';
             const parentEmail = parentEmailInput ? parentEmailInput.value.trim() : '';
+            const parentPhone = parentPhoneInput ? parentPhoneInput.value.trim() : '';
 
             if (email === '' || password === '') {
                 errorMessage.textContent = 'Please enter email and password.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (role === 'student' && fullName === '') {
+                errorMessage.textContent = 'Please enter your full name.';
                 errorMessage.classList.remove('hidden');
                 return;
             }
@@ -2480,20 +2500,25 @@
                 const user = userCredential.user;
                 console.log("Signed up:", user.email);
 
+                const displayName = fullName || user.email.split('@')[0];
+
                 // Create user profile in Firestore
                 await setDoc(doc(db, "users", user.uid), {
                     uid: user.uid,
                     email: user.email,
+                    displayName: displayName,
                     role: role,
-                    parentEmail: role === 'student' ? parentEmail : ''
+                    parentEmail: role === 'student' ? parentEmail : '',
+                    parentPhone: role === 'student' ? parentPhone : ''
                 });
 
                 successMessage.textContent = "Account created! Logging in...";
                 successMessage.classList.remove('hidden');
 
-                window.state.studentName = user.email.split('@')[0];
+                window.state.studentName = displayName;
                 window.state.role = role;
                 window.state.parentEmail = parentEmail;
+                window.state.parentPhone = parentPhone;
                 userId = user.uid;
 
                 document.getElementById('student-name-display-sidebar').textContent = window.state.studentName;
@@ -3390,11 +3415,13 @@
                 } else {
                     querySnapshot.forEach((doc) => {
                         const student = doc.data();
+                        const name = student.displayName || student.email.split('@')[0];
                         studentsHtml += `
-                            <div class="flex items-center justify-between p-4 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 cursor-pointer" onclick="viewStudentHistory('${student.uid}', '${student.email}')">
+                            <div class="flex items-center justify-between p-4 bg-white border border-gray-300 rounded-lg shadow-md hover:bg-gray-50 cursor-pointer" onclick="viewStudentHistory('${student.uid}', '${name}', '${student.parentPhone || ''}')">
                                 <div>
-                                    <h3 class="text-lg font-bold text-gray-800">${student.email}</h3>
-                                    <p class="text-sm text-gray-500">UID: ${student.uid}</p>
+                                    <h3 class="text-lg font-bold text-gray-800">${name}</h3>
+                                    <p class="text-sm text-gray-500">${student.email}</p>
+                                    ${student.parentPhone ? `<p class="text-sm text-gray-500">Parent: ${student.parentPhone}</p>` : ''}
                                 </div>
                                 <div class="text-blue-600 font-semibold">View Progress &rarr;</div>
                             </div>
@@ -3418,9 +3445,22 @@
             }
         }
 
-        window.viewStudentHistory = async function(studentId, studentEmail) {
+        window.sendParentWhatsApp = function(phone, studentName, testName, score, total) {
+            if (!phone) {
+                alert("No parent phone number available for this student.");
+                return;
+            }
+
+            const message = `Hello,\n\nI wanted to share the results for ${studentName} on the recent ${testName}.\n\nScore: ${score}/44\nThis score represents their raw accuracy on the test.\n\nPlease let us know if you have any questions about their progress.\n\nBest regards,\nAK-Anous Academy`;
+
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodedMessage}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
+        window.viewStudentHistory = async function(studentId, studentName, parentPhone) {
             const contentDiv = document.getElementById('question-content');
-            contentDiv.innerHTML = `<p class="text-center text-xl">Loading history for ${studentEmail}...</p>`;
+            contentDiv.innerHTML = `<p class="text-center text-xl">Loading history for ${studentName}...</p>`;
 
             try {
                 const q = query(collection(db, "results"), where("userId", "==", studentId));
@@ -3443,17 +3483,25 @@
 
                         window.tempStudentResults[result.testId] = result;
 
+                        const testName = testData ? testData.name : result.testId;
                         resultsHtml += `
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
                                 <div>
-                                    <h3 class="text-lg font-bold text-gray-800">${testData ? testData.name : result.testId}</h3>
+                                    <h3 class="text-lg font-bold text-gray-800">${testName}</h3>
                                     <p class="text-sm text-gray-600">Date: ${date}</p>
                                     <p class="text-md font-semibold text-blue-600">Score: ${result.totalCorrect}/44 (${result.percentage.toFixed(1)}%)</p>
                                 </div>
-                                <button onclick="reviewPastAttempt('${result.testId}', window.tempStudentResults['${result.testId}'])"
-                                        class="mt-2 sm:mt-0 px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-700 text-white font-semibold rounded-lg shadow hover:shadow-md hover:scale-105 transition duration-150">
-                                    View Details
-                                </button>
+                                <div class="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+                                    ${parentPhone ? `
+                                    <button onclick="sendParentWhatsApp('${parentPhone}', '${studentName}', '${testName}', '${result.totalCorrect}', '44')"
+                                            class="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg shadow hover:shadow-md hover:scale-105 transition duration-150">
+                                        WhatsApp Parent
+                                    </button>` : ''}
+                                    <button onclick="reviewPastAttempt('${result.testId}', window.tempStudentResults['${result.testId}'])"
+                                            class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-700 text-white font-semibold rounded-lg shadow hover:shadow-md hover:scale-105 transition duration-150">
+                                        View Details
+                                    </button>
+                                </div>
                             </div>
                         `;
                     });
